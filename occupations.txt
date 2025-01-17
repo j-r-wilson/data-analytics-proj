@@ -37,4 +37,4 @@ guard
 analyst
 mechanic
 sheriff
-CEO
+ceo

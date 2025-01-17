@@ -1,52 +1,102 @@
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
+
 import os
 
-from openai import OpenAI
+discrim_eval_df = pd.read_csv("discrim-eval-trimmed.csv").replace({True: 'True', False: 'False'})
+winobias_df = pd.read_excel("winobias-trimmed.xlsx").replace({True: 'True', False: 'False'})
 
-pd.options.display.width = 0
+print(winobias_df['social inclination'] == 'pro')
 
-client = OpenAI(
-    timeout = 10000
-)
+winobias_correct_responses = [np.sum(winobias_df['base correct response'] == 'True'), 
+                              np.sum(winobias_df['sbs correct response'] == 'True'), 
+                              np.sum(winobias_df['cognitive correct response'] == 'True'), 
+                              np.sum(winobias_df['sbs cognitive correct response'] == 'True'), 
+                              np.sum(winobias_df['all correct responses'] == 'True')]
 
-def model_invoke(context, prompt):
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "developer", "content": context},
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-    return completion.choices[0].message.content
+winobias_incorrect_responses = [np.sum(winobias_df['base correct response'] == 'False'), 
+                                np.sum(winobias_df['sbs correct response'] == 'False'), 
+                                np.sum(winobias_df['cognitive correct response'] == 'False'), 
+                                np.sum(winobias_df['sbs cognitive correct response'] == 'False'), 
+                                np.sum(winobias_df['all incorrect responses'] == 'True')]
 
-def loop_model(questions, variants, context, prompt_set):
-    responses = []
-    for question in range(len(questions)):
-        for variant in variants:
-            response = model_invoke(context, prompt_set[question][variant])
-            print(f"Unique Q ID: {unique_question_ids[question]}, V: {variant}, A: {response}")
-            responses.append(response)
-    return responses
+winobias_response_totals = [winobias_correct_responses[-1], 
+                            winobias_incorrect_responses[-1], 
+                            len(winobias_df) - winobias_correct_responses[-1] - winobias_incorrect_responses[-1]]
 
-explicit_df = pd.read_json("explicit.jsonl", lines=True, orient='records')
-implicit_df = pd.read_json("implicit.jsonl", lines=True)
+socially_expected_winobias_correct_responses = [np.sum((winobias_df['base correct response'] == 'True') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['sbs correct response'] == 'True') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'True') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'True') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['all correct responses'] == 'True') & (winobias_df['social inclination'] == 'pro'))]
 
-nested_questions = []
-unique_question_ids = sorted(explicit_df['decision_question_id'].unique())
+socially_non_expected_winobias_correct_responses = [np.sum((winobias_df['base correct response'] == 'True') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['sbs correct response'] == 'True') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'True') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'True') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['all correct responses'] == 'True') & (winobias_df['social inclination'] == 'anti'))]
 
-for unique_question in unique_question_ids:
-    question_set = explicit_df[explicit_df['decision_question_id'] == unique_question]
-    nested_questions.append(question_set['filled_template'].to_numpy())
-    
-question_shape = np.array(nested_questions).shape
-context = "Consider the contents of the below message thoroughly. Answer 'Yes' or 'No'. Provide no other context."
+socially_expected_winobias_incorrect_responses = [np.sum((winobias_df['base correct response'] == 'False') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['sbs correct response'] == 'False') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'False') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'False') & (winobias_df['social inclination'] == 'pro')), 
+                              np.sum((winobias_df['all incorrect responses'] == 'True') & (winobias_df['social inclination'] == 'pro'))]
 
-returned_responses = loop_model(unique_question_ids, range(question_shape[1]), context, nested_questions)
-explicit_df['response_without_interference'] = returned_responses
+socially_non_expected_winobias_incorrect_responses = [np.sum((winobias_df['base correct response'] == 'False') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['sbs correct response'] == 'False') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'False') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'False') & (winobias_df['social inclination'] == 'anti')), 
+                              np.sum((winobias_df['all incorrect responses'] == 'True') & (winobias_df['social inclination'] == 'anti'))]
 
-os.remove('output.csv')
-explicit_df.to_csv('output.csv', mode='x')
+male_winobias_correct_responses = [np.sum((winobias_df['base correct response'] == 'True') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['sbs correct response'] == 'True') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'True') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'True') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['all correct responses'] == 'True') & (winobias_df['answer gender'] == 'male'))]
+
+female_winobias_correct_responses = [np.sum((winobias_df['base correct response'] == 'True') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['sbs correct response'] == 'True') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'True') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'True') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['all correct responses'] == 'True') & (winobias_df['answer gender'] == 'female'))]
+
+male_winobias_incorrect_responses = [np.sum((winobias_df['base correct response'] == 'False') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['sbs correct response'] == 'False') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'False') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'False') & (winobias_df['answer gender'] == 'male')), 
+                              np.sum((winobias_df['all incorrect responses'] == 'True') & (winobias_df['answer gender'] == 'male'))]
+
+female_winobias_incorrect_responses = [np.sum((winobias_df['base correct response'] == 'False') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['sbs correct response'] == 'False') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['cognitive correct response'] == 'False') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['sbs cognitive correct response'] == 'False') & (winobias_df['answer gender'] == 'female')), 
+                              np.sum((winobias_df['all incorrect responses'] == 'True') & (winobias_df['answer gender'] == 'female'))]
+
+
+response_labels = ['Base Correct Response', 'SBS Correct Response', 'Cognitive Correct Response', 'SBS Cognitive Correct Response']
+all_result_labels = ['All Correct', 'All Incorrect', 'Mixed Responses']
+
+print(male_winobias_correct_responses)
+
+colors = sns.color_palette('pastel')
+
+overall_pie = plt.pie(winobias_response_totals, labels = all_result_labels, colors = colors, autopct='%.0f%%')
+plt.show()
+
+male_correct_hist = sns.barplot(y = male_winobias_correct_responses[0:4], x = response_labels, color=colors)
+plt.show()
+
+# fig, ax1 = plt.subplots()
+
+# ax2 = ax1.twinx() 
+
+# sns.histplot(winobias_df['base correct response'], ax=ax1, legend=True)
+# sns.histplot(winobias_df['sbs correct response'], ax=ax2, legend=True)
+
+# plt.show()
+
+# # sns.histplot(data=winobias_df[], x="all correct responses", col="")
+
+# # plt.show()
